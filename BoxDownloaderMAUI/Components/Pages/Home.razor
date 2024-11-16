@@ -3,6 +3,7 @@
 @using System.Text.RegularExpressions
 @using BoxDownloaderMAUI.Services
 @inject DownloadService DownloadService
+@inject DownloaderSettings Settings
 @using Models
 
 <EditForm Model="formState" class="p-3">
@@ -62,8 +63,6 @@
 
     private void OpenDownloadsFolder()
     {
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var downloadsPath = Path.Combine(userProfile, "Downloads");
-        Process.Start("explorer", downloadsPath);
+        Process.Start("explorer", Settings.DownloadPath);
     }
 }
