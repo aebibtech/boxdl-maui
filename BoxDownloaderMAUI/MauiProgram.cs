@@ -1,4 +1,6 @@
-﻿using BoxDownloaderMAUI.Services;
+﻿using BoxDownloaderMAUI.Helpers;
+using BoxDownloaderMAUI.Models;
+using BoxDownloaderMAUI.Services;
 using Microsoft.Extensions.Logging;
 using PuppeteerSharp;
 
@@ -28,14 +30,11 @@ public static class MauiProgram
 		var browserFetcher = new BrowserFetcher(){ CacheDir = path };
 		browserFetcher.DownloadAsync().GetAwaiter().GetResult();
 		
-		var browser = (Puppeteer.LaunchAsync(new LaunchOptions()
+		builder.Services.AddSingleton(new DownloaderSettings()
 		{
-			ExecutablePath = browserFetcher.GetInstalledBrowsers().First().GetExecutablePath(),
-			Headless = true,
-			Timeout = 0
-		})).GetAwaiter().GetResult();
-		
-		builder.Services.AddSingleton(browser);
+			BrowserPath = browserFetcher.GetInstalledBrowsers().First().GetExecutablePath(),
+			DownloadPath = Path.Combine(up, "Downloads")
+		});
 		builder.Services.AddSingleton<HttpClient>();
 		builder.Services.AddSingleton<DownloadService>();
 		

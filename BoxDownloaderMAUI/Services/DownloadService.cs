@@ -7,13 +7,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using BoxDownloaderMAUI.Helpers;
+using BoxDownloaderMAUI.Models;
 using PuppeteerSharp;
 using IBrowser = PuppeteerSharp.IBrowser;
 
 namespace BoxDownloaderMAUI.Services;
 
-public class DownloadService(HttpClient client, IBrowser browser)
+public class DownloadService(HttpClient client, DownloaderSettings settings)
 {
+    private IBrowser browser;
+    
     public async Task<int> DownloadBoxLinksAsync(string[] urls)
     {
         using Ping pinger = new();
@@ -26,12 +29,20 @@ public class DownloadService(HttpClient client, IBrowser browser)
 
         if (urls == null && urls.Length == 0)
             return 0;
+
+        browser = await Puppeteer.LaunchAsync(new LaunchOptions()
+        {
+            ExecutablePath = settings.BrowserPath,
+            Headless = true,
+            Timeout = 0
+        });
         
         List<(string, string)> downloadLinks = [];
         foreach (string url in urls)
         {
             (string, string) downloadLink = await ScrapeBoxDocumentAsync(url);
             downloadLinks.Add(downloadLink);
+            await Task.Delay(500);
         }
         
         Task[] downloadFileTasks = downloadLinks
@@ -40,14 +51,16 @@ public class DownloadService(HttpClient client, IBrowser browser)
             .ToArray();
         await Task.WhenAll(downloadFileTasks);
         
+        await browser.CloseAsync();
+        
         return 1;
     }
 
     private async Task<(string, string)> ScrapeBoxDocumentAsync(string url)
     {
-        var page = await browser.NewPageAsync();
         try
         {
+            var page = await browser.NewPageAsync();
             await page.GoToAsync(url, new NavigationOptions()
             {
                 Timeout = 0,
@@ -67,12 +80,10 @@ public class DownloadService(HttpClient client, IBrowser browser)
                 return isPreview || isInternalFiles;
             });
             string downloadLink = target?.GetProperty("name").GetString() ?? string.Empty;
-            await page.CloseAsync();
             return (title, downloadLink);
         }
         catch (Exception ex)
         {
-            await page.CloseAsync();
             Console.WriteLine(ex.Message);
             return (string.Empty, string.Empty);
         }
@@ -80,8 +91,7 @@ public class DownloadService(HttpClient client, IBrowser browser)
 
     private async Task DownloadFileAsync(string downloadLink, string title)
     {
-        string userProfilePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        string destinationPath = Path.Combine(userProfilePath, "Downloads", $"{title}-{DateTime.Now.Ticks}.pdf");
+        string destinationPath = Path.Combine(settings.DownloadPath, $"{title}-{DateTime.Now.Ticks}.pdf");
         
         client.DefaultRequestHeaders.AcceptEncoding.Clear();
         client.DefaultRequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
