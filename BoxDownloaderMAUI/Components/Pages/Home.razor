@@ -1,0 +1,69 @@
+﻿@page "/"
+@using System.Diagnostics
+@using System.Text.RegularExpressions
+@using BoxDownloaderMAUI.Services
+@inject DownloadService DownloadService
+@using Models
+
+<EditForm Model="formState" class="p-3">
+    <h1 class="mb-3">Box.com Downloader</h1>
+    <InputTextArea class="form-control" placeholder="Paste your box.com links here" @bind-Value="@formState.Links" style="height: 360px;" disabled="@formState.IsProcessing" />
+    <div class="d-flex justify-content-between mt-3">
+        <button @onclick="Download" type="submit" class="btn btn-primary" disabled="@formState.IsProcessing">
+            @if (formState.IsProcessing)
+            {
+                <div class="spinner-border spinner-border-sm text-light" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <span>Downloading</span>
+            }
+            else
+            {
+                <span>Download</span>
+            }
+        </button>
+        <button @onclick="OpenDownloadsFolder" class="btn btn-secondary">Open Downloads Folder</button>
+    </div>
+</EditForm>
+
+@code {
+    private BoxState formState;
+
+    protected override void OnInitialized()
+    {
+        formState = new BoxState();
+    }
+
+    private async Task Download() {
+        formState.IsProcessing = true;
+
+        if (string.IsNullOrWhiteSpace(formState.Links))
+        {
+            formState.IsProcessing = false;
+            return;
+        }    
+        
+        string[] validLinks = Regex
+            .Split(formState.Links, @"\s")
+            .AsParallel().AsOrdered()
+            .Where(IsValidUrl)
+            .Distinct()
+            .ToArray();
+        
+        await DownloadService.DownloadBoxLinksAsync(validLinks);
+        formState.Links = string.Empty;
+        formState.IsProcessing = false;
+    }
+
+    private static bool IsValidUrl(string url)
+    {
+        return url.Contains("box.com");
+    }
+
+    private void OpenDownloadsFolder()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var downloadsPath = Path.Combine(userProfile, "Downloads");
+        Process.Start("explorer", downloadsPath);
+    }
+}
