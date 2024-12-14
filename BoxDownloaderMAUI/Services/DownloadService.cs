@@ -37,23 +37,37 @@ public class DownloadService(HttpClient client, DownloaderSettings settings)
             Timeout = 0
         });
         
-        List<(string, string)> downloadLinks = [];
-        foreach (string url in urls)
-        {
-            (string, string) downloadLink = await ScrapeBoxDocumentAsync(url);
-            downloadLinks.Add(downloadLink);
-            await Task.Delay(500);
-        }
+        // List<(string, string)> downloadLinks = [];
+        // foreach (string url in urls)
+        // {
+        //     (string, string) downloadLink = await ScrapeBoxDocumentAsync(url);
+        //     downloadLinks.Add(downloadLink);
+        //     await Task.Delay(500);
+        // }
         
-        Task[] downloadFileTasks = downloadLinks
-            .Where(x => x != (string.Empty, string.Empty))
-            .Select(t => DownloadFileAsync(t.Item2, t.Item1))
-            .ToArray();
-        await Task.WhenAll(downloadFileTasks);
+        // Task[] downloadFileTasks = downloadLinks
+        //     .Where(x => x != (string.Empty, string.Empty))
+        //     .Select(t => DownloadFileAsync(t.Item2, t.Item1))
+        //     .ToArray();
+        // await Task.WhenAll(downloadFileTasks);
+
+        await foreach (var item in ScrapeBoxDocumentsAsync(urls))
+        {
+            await DownloadFileAsync(item.Item2, item.Item1);
+        }
         
         await browser.CloseAsync();
         
         return 1;
+    }
+
+    private async IAsyncEnumerable<(string, string)> ScrapeBoxDocumentsAsync(IEnumerable<string> urls)
+    {
+        foreach (string url in urls)
+        {
+            (string title, string link) = await ScrapeBoxDocumentAsync(url);
+            yield return (title, link);
+        }
     }
 
     private async Task<(string, string)> ScrapeBoxDocumentAsync(string url)
